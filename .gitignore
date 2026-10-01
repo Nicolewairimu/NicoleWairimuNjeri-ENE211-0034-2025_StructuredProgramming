@@ -6,3 +6,7 @@ obj/
 .DS_Store
 
 
+
+*.cbp
+*.depend
+*.layout
