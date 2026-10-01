@@ -1,0 +1,5 @@
+# depslib dependency file v1.0
+1789930215 source:/Users/nicolewairimu/Desktop/Structured-Programming/Greetings/main.c
+	<stdio.h>
+	<stdlib.h>
+
