@@ -7,10 +7,17 @@ void showMenu();
 void checkBalance(float balance);
 float deposit(float balance);
 float withdraw(float balance);
+float fundTransfer(float balance);
+float billPayment(float balance);
+void changePin();
+void showMiniStatement();
+void logTransaction(char *type, float amount);
 void exitATM();
 int anotherTransaction();
 float loadBalance();
 void saveBalance(float balance);
+void loadPin(char *pin);
+void savePin(char *pin);
 
 int main() {
     if (!login()) {
@@ -23,7 +30,7 @@ int main() {
 
     do {
         showMenu();
-        printf("Enter your choice (1-4): ");
+        printf("Enter your choice (1-8): ");
 
         if (scanf("%d", &choice) != 1) {
             printf("Invalid input. Please enter a number.\n");
@@ -47,24 +54,40 @@ int main() {
                 transactionDone = 1;
                 break;
             case 4:
+                balance = fundTransfer(balance);
+                transactionDone = 1;
+                break;
+            case 5:
+                balance = billPayment(balance);
+                transactionDone = 1;
+                break;
+            case 6:
+                changePin();
+                transactionDone = 1;
+                break;
+            case 7:
+                showMiniStatement();
+                transactionDone = 1;
+                break;
+            case 8:
                 exitATM();
                 break;
             default:
-                printf("Invalid choice! Please select between 1 and 4.\n");
+                printf("Invalid choice! Please select between 1 and 8.\n");
         }
 
-        if (transactionDone) {
+        if (transactionDone && choice != 8) {
             if (!anotherTransaction()) {
                 exitATM();
                 break;
             }
         }
 
-        if (choice != 4) {
+        if (choice != 8) {
             printf("\n----------------------------------------\n");
         }
 
-    } while (choice != 4);
+    } while (choice != 8);
 
     return 0;
 }
@@ -91,8 +114,37 @@ void saveBalance(float balance) {
     }
 }
 
+void loadPin(char *pin) {
+    FILE *file = fopen("pin.txt", "r");
+    if (file == NULL) {
+        strcpy(pin, "1234");
+        savePin(pin);
+        return;
+    }
+    fscanf(file, "%s", pin);
+    fclose(file);
+}
+
+void savePin(char *pin) {
+    FILE *file = fopen("pin.txt", "w");
+    if (file != NULL) {
+        fprintf(file, "%s", pin);
+        fclose(file);
+    }
+}
+
+void logTransaction(char *type, float amount) {
+    FILE *file = fopen("statement.txt", "a");
+    if (file != NULL) {
+        fprintf(file, "%s: KES %.2f\n", type, amount);
+        fclose(file);
+    }
+}
+
 int login() {
-    char correctPin[] = "1234";
+    char correctPin[10];
+    loadPin(correctPin);
+
     char enteredPin[10];
     int attempts = 0;
     int maxAttempts = 3;
@@ -151,7 +203,11 @@ void showMenu() {
     printf("1. Balance Inquiry\n");
     printf("2. Deposit\n");
     printf("3. Withdraw\n");
-    printf("4. Exit\n");
+    printf("4. Fund Transfer\n");
+    printf("5. Bill Payment\n");
+    printf("6. PIN Change\n");
+    printf("7. Mini Statement\n");
+    printf("8. Exit\n");
     printf("----------------------------------------\n");
 }
 
@@ -181,6 +237,7 @@ float deposit(float balance) {
     } else {
         balance += amount;
         saveBalance(balance);
+        logTransaction("Deposit", amount);
         printf("Successfully deposited KES %.2f\n", amount);
         printf("New Balance: KES %.2f\n", balance);
     }
@@ -211,10 +268,145 @@ float withdraw(float balance) {
     } else {
         balance -= amount;
         saveBalance(balance);
+        logTransaction("Withdraw", amount);
         printf("Successfully withdrew KES %.2f\n", amount);
         printf("Remaining Balance: KES %.2f\n", balance);
     }
     return balance;
+}
+
+float fundTransfer(float balance) {
+    char accountNumber[20];
+    float amount;
+
+    printf("\n--- Fund Transfer ---\n");
+    printf("Enter recipient account number: ");
+    scanf("%s", accountNumber);
+
+    printf("Enter amount to transfer (or enter 0 to cancel): KES ");
+    if (scanf("%f", &amount) != 1) {
+        printf("Invalid input. Transaction cancelled.\n");
+        while (getchar() != '\n');
+        return balance;
+    }
+
+    if (amount == 0) {
+        printf("Transaction cancelled. Returning to menu...\n");
+        return balance;
+    }
+
+    if (amount < 0) {
+        printf("Error: Amount must be greater than zero.\n");
+    }
+    else if (amount > balance) {
+        printf("Error: Insufficient balance! You have KES %.2f\n", balance);
+    } else {
+        balance -= amount;
+        saveBalance(balance);
+        logTransaction("Transfer", amount);
+        printf("Successfully transferred KES %.2f to account %s\n", amount, accountNumber);
+        printf("Remaining Balance: KES %.2f\n", balance);
+    }
+    return balance;
+}
+
+float billPayment(float balance) {
+    int billChoice;
+    float amount;
+
+    printf("\n--- Bill Payment ---\n");
+    printf("1. Electricity\n");
+    printf("2. Water\n");
+    printf("3. Internet\n");
+    printf("Select bill type (1-3): ");
+
+    if (scanf("%d", &billChoice) != 1 || billChoice < 1 || billChoice > 3) {
+        printf("Invalid bill type selection.\n");
+        while (getchar() != '\n');
+        return balance;
+    }
+
+    printf("Enter amount to pay (or enter 0 to cancel): KES ");
+    if (scanf("%f", &amount) != 1) {
+        printf("Invalid input. Transaction cancelled.\n");
+        while (getchar() != '\n');
+        return balance;
+    }
+
+    if (amount == 0) {
+        printf("Transaction cancelled. Returning to menu...\n");
+        return balance;
+    }
+
+    if (amount < 0) {
+        printf("Error: Amount must be greater than zero.\n");
+    }
+    else if (amount > balance) {
+        printf("Error: Insufficient balance! You have KES %.2f\n", balance);
+    } else {
+        balance -= amount;
+        saveBalance(balance);
+        logTransaction("Bill Payment", amount);
+        printf("Bill paid successfully!\n");
+        printf("Remaining Balance: KES %.2f\n", balance);
+    }
+    return balance;
+}
+
+void changePin() {
+    char currentPin[10];
+    char newPin[10];
+    loadPin(currentPin);
+
+    printf("\n--- PIN Change ---\n");
+    printf("Enter current 4-digit PIN: ");
+    scanf("%s", currentPin);
+
+    char savedPin[10];
+    loadPin(savedPin);
+
+    int mismatches = 0;
+    for (int i = 0; i < 4; i++) {
+        if (savedPin[i] != currentPin[i]) {
+            mismatches++;
+        }
+    }
+
+    if (mismatches != 0) {
+        printf("Error: Incorrect current PIN.\n");
+        return;
+    }
+
+    printf("Enter new 4-digit PIN: ");
+    scanf("%s", newPin);
+
+    int length = 0;
+    while (newPin[length] != '\0') {
+        length++;
+    }
+
+    if (length != 4) {
+        printf("Error: New PIN must be exactly 4 digits.\n");
+        return;
+    }
+
+    savePin(newPin);
+    printf("PIN successfully changed!\n");
+}
+
+void showMiniStatement() {
+    printf("\n--- Mini Statement ---\n");
+    FILE *file = fopen("statement.txt", "r");
+    if (file == NULL) {
+        printf("No recent transactions found.\n");
+        return;
+    }
+
+    char line[100];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        printf("%s", line);
+    }
+    fclose(file);
 }
 
 int anotherTransaction() {
